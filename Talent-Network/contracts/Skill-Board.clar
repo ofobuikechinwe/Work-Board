@@ -18,6 +18,7 @@
 (define-constant ERR-PLATFORM-MAINTENANCE-MODE (err u107))
 (define-constant ERR-DEADLINE-BEFORE-START-DATE (err u108))
 (define-constant ERR-RATING-OUT-OF-RANGE (err u109))
+(define-constant ERR-INVALID-EVIDENCE-HASH (err u110))
 
 ;; PLATFORM CONFIGURATION
 
@@ -238,11 +239,13 @@
     (dispute-reason (string-ascii 300))
     (evidence-hash (optional (string-ascii 64))))
     
-    (let ((contract-data (unwrap! (get-contract-details contract-id) ERR-CONTRACT-NOT-FOUND)))
+    (let ((contract-data (unwrap! (get-contract-details contract-id) ERR-CONTRACT-NOT-FOUND))
+          (validated-evidence-hash (validate-evidence-hash evidence-hash)))
         
         (asserts! (or (is-eq tx-sender (get freelancer-address contract-data))
                       (is-eq tx-sender (get client-address contract-data))) ERR-UNAUTHORIZED-ACCESS)
         (asserts! (validate-text-input dispute-reason) ERR-INVALID-INPUT-PARAMETERS)
+        (asserts! validated-evidence-hash ERR-INVALID-EVIDENCE-HASH)
         
         ;; Create dispute record
         (map-set contract-disputes
@@ -488,4 +491,13 @@
 ;; Validate text input requirements
 (define-private (validate-text-input (text (string-ascii 500)))
     (and (>= (len text) u1) (<= (len text) u500))
+)
+
+;; Validate evidence hash format and content
+(define-private (validate-evidence-hash (evidence-hash (optional (string-ascii 64))))
+    (match evidence-hash
+        hash-value
+        (and (>= (len hash-value) u32) (<= (len hash-value) u64))
+        true ;; None is valid
+    )
 )
